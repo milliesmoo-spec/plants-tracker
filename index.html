@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2e7d32">
+    <title>30 Plants a Week</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; color: #333; }
+        header { background: #2e7d32; color: white; padding: 15px; text-align: center; }
+        .container { padding: 15px; }
+        .section { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .section h2 { color: #2e7d32; margin-bottom: 10px; }
+        .plant-form { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .plant-form input { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; min-width: 200px; }
+        .btn { padding: 10px 16px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-secondary { padding: 10px 16px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .plants-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
+        .plants-list li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .plant-number { background: #2e7d32; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; }
+        .remove-btn { background: #d32f2f; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
+        .count-display { text-align: center; padding: 20px; font-size: 28px; font-weight: bold; color: #2e7d32; background: #e8f5e9; border-radius: 8px; margin: 15px 0; }
+        .celebration { text-align: center; padding: 15px; font-size: 18px; font-weight: bold; color: white; background: #4caf50; border-radius: 8px; display: none; }
+        .celebration.show { display: block; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #2e7d32; color: white; }
+        .clear-btn { display: block; width: 100%; padding: 12px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+        .autocomplete-items { position: absolute; border: 1px solid #ddd; z-index: 99; top: 100%; left: 0; right: 0; max-height: 300px; overflow-y: auto; background: white; }
+        .autocomplete-items div { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .autocomplete-items div:hover { background: #f5f5f5; }
+        .autocomplete-items .category-header { background: #f0f0f0; font-weight: bold; color: #2e7d32; padding: 8px 12px; cursor: default; }
+        .info-icon { display: inline-block; width: 20px; height: 20px; background: #2e7d32; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; cursor: pointer; margin-left: 5px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal.show { display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .modal-header h3 { color: #2e7d32; margin: 0; }
+        .close-modal { font-size: 24px; cursor: pointer; color: #999; }
+        .modal-body { font-size: 15px; line-height: 1.6; color: #555; }
+        .modal-body ul { padding-left: 20px; margin: 10px 0; }
+        .modal-body li { margin-bottom: 5px; }
+        .modal-footer { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; text-align: right; }
+        .input-wrapper { position: relative; flex: 1; min-width: 200px; }
+        @media (max-width: 400px) { .plant-form { flex-direction: column; } .plant-form input, .input-wrapper { width: 100%; } }
+        .migration-notice { background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px; display: none; }
+        .migration-notice.show { display: block; }
+        .sync-status { font-size: 12px; color: #666; text-align: right; margin-top: 5px; }
+        .sync-status.connected { color: #4caf50; }
+        .sync-status.disconnected { color: #d32f2f; }
+
+        /* Recipes section styles */
+        .recipe-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .recipe-form input { padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        .recipe-plants-input { display: flex; gap: 10px; flex-wrap: wrap; }
+        .recipe-plants-input .input-wrapper { flex: 1; min-width: 150px; }
+        .recipe-plants-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; max-height: 150px; overflow-y: auto; padding: 8px; background: #f9f9f9; border-radius: 4px; }
+        .recipe-plant-tag { background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 14px; display: flex; align-items: center; }
+        .recipe-plant-tag .remove-recipe-plant { background: #2e7d32; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; cursor: pointer; margin-left: 6px; font-size: 10px; line-height: 1; }
+        .recipes-list { list-style: none; padding: 0; }
+        .recipe-item { background: #f9f9f9; padding: 12px; border-radius: 4px; margin-bottom: 10px; border-left: 4px solid #2e7d32; }
+        .recipe-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .recipe-item-name { font-weight: bold; color: #2e7d32; font-size: 16px; }
+        .recipe-item-plants { font-size: 14px; color: #666; margin-top: 4px; }
+        .recipe-actions { display: flex; gap: 8px; }
+        .recipe-actions button { padding: 6px 12px; font-size: 14px; }
+        .add-recipe-btn { background: #1976d2; }
+        .recipe-form-container { display: none; margin-bottom: 15px; padding: 15px; background: #f0f8f4; border-radius: 8px; }
+        .recipe-form-container.show { display: block; }
+        .toggle-recipe-form { width: 100%; padding: 10px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .recipe-plant-count { font-size: 12px; color: #666; margin-left: 8px; }
+        .user-id-input { margin-top: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; }
+    </style>
+</head>
+<body>
+    <header><h1>30 Plants a Week</h1></header>
+    <div class="container">
+        <div class="section">
+            <div class="migration-notice" id="migrationNotice">
+                <strong>✅ Data restored!</strong> Your previous plants have been moved to the current week.
+            </div>
+            <h2>Add Plant <span class="info-icon" onclick="showInfoModal()">?</span></h2>
+            
+            <!-- User ID input for Firebase -->
+            <div style="margin-bottom: 10px;">
+                <input type="text" id="userIdInput" class="user-id-input" placeholder="Enter your user ID (same on all devices)">
+                <button class="btn" onclick="setUserId()" style="margin-top: 5px; width: 100%;">Set User ID</button>
+            </div>
+            <div class="sync-status" id="syncStatus">⚠️ Enter user ID to sync</div>
+            
+            <form class="plant-form" onsubmit="addPlant(); return false;">
+                <div class="input-wrapper">
+                    <input type="text" id="plantInput" autocomplete="off" placeholder="Type plant name..." onfocus="showAutocomplete()" oninput="showAutocomplete()">
+                    <div id="autocompleteList" class="autocomplete-items"></div>
+                </div>
+                <button type="submit" class="btn">Add</button>
+            </form>
+            <button class="clear-btn" onclick="clearAll()">Clear All</button>
+        </div>
+
+        <div class="section">
+            <h2>This Week's Plants</h2>
+            <ul class="plants-list" id="plantsList"></ul>
+            <div class="count-display" id="countDisplay">0 plants</div>
+            <div class="celebration" id="celebration">🌈 Congratulations! 30 plants! 🌈</div>
+        </div>
+
+        <div class="section">
+            <h2>Recipes <span class="info-icon" onclick="showRecipeInfoModal()">?</span></h2>
+            <button class="toggle-recipe-form" onclick="toggleRecipeForm()">➕ New Recipe</button>
+
+            <div class="recipe-form-container" id="recipeFormContainer">
+                <form class="recipe-form" onsubmit="createRecipe(); return false;">
+                    <input type="text" id="recipeNameInput" placeholder="Recipe name..." required>
+                    <div class="recipe-plants-input">
+                        <div class="input-wrapper">
+                            <input type="text" id="recipePlantInput" autocomplete="off" placeholder="Add plant to recipe..." onfocus="showRecipeAutocomplete()" oninput="showRecipeAutocomplete()">
+                            <div id="recipeAutocompleteList" class="autocomplete-items"></div>
+                        </div>
+                        <button type="button" class="btn" onclick="addPlantToRecipe()">Add Plant</button>
+                    </div>
+                    <div class="recipe-plants-list" id="recipePlantsList"></div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn">Save Recipe</button>
+                        <button type="button" class="btn-secondary" onclick="cancelRecipe()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <ul class="recipes-list" id="recipesList"></ul>
+        </div>
+
+        <div class="section">
+            <h2>Previous Weeks</h2>
+            <table><thead><tr><th>Week</th><th>Count</th></tr></thead><tbody id="previousWeeksTable"></tbody></table>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>About 30 Plants</h3><span class="close-modal" onclick="closeInfoModal()">×</span></div>
+            <div class="modal-body">
+                <p><strong>Tip:</strong> Type any plant name - even if it's not in the list! Each unique plant counts as 1 point.</p>
+                <p>The week resets every <strong>Saturday at 12:01 AM</strong>.</p>
+                <p><strong>Cross-device sync:</strong> Enter the same User ID on all your devices to sync data via Firebase. Your data is stored under your User ID.</p>
+                <p><strong>Privacy:</strong> Only you can access your data with your User ID. No authentication required.</p>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeInfoModal()">OK</button></div>
+        </div>
+    </div>
+
+    <div id="recipeInfoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>About Recipes</h3><span class="close-modal" onclick="closeRecipeInfoModal()">×</span></div>
+            <div class="modal-body">
+                <p><strong>Recipes</strong> allow you to save a list of plants that you use together in a dish.</p>
+                <p>When you add a recipe to your weekly list, all plants in that recipe are added (duplicates are automatically skipped).</p>
+                <p>Recipes persist until you delete them and sync across devices with the same User ID.</p>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeRecipeInfoModal()\">OK</button></div>
+        </div>
+    </div>
+    <div id="customPlantsInfoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>About Custom Plants</h3><span class="close-modal" onclick="closeCustomPlantsInfoModal()">×</span></div>
+            <div class="modal-body">
+                <p><strong>Custom Plants</strong> are plants you add that aren't in the predefined list.</p>
+                <p>Once added, they appear in the autocomplete list under "Custom Plants" category and persist across sessions.</p>
+            </div>
+            <div class="modal-footer"><button class="btn" onclick="closeCustomPlantsInfoModal()">OK</button></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <script>
+        // Your Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlQpUQbMjJIXMsJFZYMHK1Ehm5BOpjRYU",
+            authDomain: "plants-tracker-34cfc.firebaseapp.com",
+            databaseURL: "https://plants-tracker-34cfc-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "plants-tracker-34cfc",
+            storageBucket: "plants-tracker-34cfc.appspot.com",
+            messagingSenderId: "1095699711937",
+            appId: "1:1095699711937:web:08b962eab6a71e7d315140"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        const ALL_PLANTS = {
+            "Vegetables": ["Avocado","Asparagus","Artichoke","Rocket","Beetroot","Bok Choy","Broccoli","Red Cabbage","White Cabbage","Savoy  Cabbage","Chinese leaf lettuce","Carrot","Cauliflower","Celery","Cucumber","Eggplant","Garlic","Green Beans","Kale","Lettuce","Mushroom","Red Onion","Onion","Parsnip","Red Pepper","Green Pepper","Potato","Radish","Spinach","Squash","Sweet Potato","Swiss Chard","Tomato","Zucchini"],
+            "Fruits": ["Apple","Apricot","Banana","Blackberries","Blueberries","Cherries","Dates","Fig","Grapefruit","Grapes","Guava","Jackfruit","Kiwi","Lemon","Melon","Orange","Papaya","Passionfruit","Peach","Pear","Pineapple","Plum","Pomegranate","Raisins","Strawberries","Watermelon"],
+            "Whole Grains": ["Barley","Brown Rice","Buckwheat","Corn","Millet","Oats","Quinoa","Rye","Whole grain bread","Whole grain pasta","Wild Rice"],
+            "Nuts & Seeds": ["Almond","Brazil nuts","Cashews","Chia seeds","Flaxseeds","Hazelnut","Hemp seeds","Peanut","Pecans","Pine nuts","Pistachios","Poppy seeds","Pumpkin seeds","Sesame seeds","Sunflower seeds","Tahini","Walnut"],
+            "Legumes": ["Adzuki beans","Black beans","Chickpeas","Edamame","Kidney Beans","Lentils","Mung beans","Navy beans","Peas","Pinto beans","Soy","Broad beans"],
+            "Herbs & Spices": ["Basil","Bay leaf","Cardamom","Chives","Cilantro","Cinnamon","Cloves","Cumin","Dill","Ginger","Green Onion","Leeks","Mint","Mustard seeds","Nutmeg","Oregano","Paprika","Parsley","Rosemary","Saffron","Tarragon","Thyme","Turmeric","Vanilla"],
+            "Fermented": ["Kefir","Kimchi","Kombucha","Miso","Sauerkraut","Tempeh"],
+            "Other": ["Cocoa","Coffee","Olives","Tea"]
+        };
+
+        let currentPlants = [];
+        let previousWeeks = [];
+        let weekStart = '';
+        let dataMigrated = false;
+        let recipes = [];
+        let currentRecipePlants = [];
+        let customPlants = [];
+        let editingRecipeIndex = null;
+        let userId = '';
+        let dbRef = null;
+
+        // DOM elements
+        const plantsList = document.getElementById('plantsList');
+        const countDisplay = document.getElementById('countDisplay');
+        const celebration = document.getElementById('celebration');
+        const previousWeeksTable = document.getElementById('previousWeeksTable');
+        const plantInput = document.getElementById('plantInput');
+        const autocompleteList = document.getElementById('autocompleteList');
+        const migrationNotice = document.getElementById('migrationNotice');
+        const recipeFormContainer = document.getElementById('recipeFormContainer');
+        const recipeNameInput = document.getElementById('recipeNameInput');
+        const recipePlantInput = document.getElementById('recipePlantInput');
+        const recipeAutocompleteList = document.getElementById('recipeAutocompleteList');
+        const recipePlantsList = document.getElementById('recipePlantsList');
+        const recipesList = document.getElementById('recipesList');
+        const recipeInfoModal = document.getElementById('recipeInfoModal');
+        const customPlantsInfoModal = document.getElementById('customPlantsInfoModal');
+        const userIdInput = document.getElementById('userIdInput');
+        const syncStatus = document.getElementById('syncStatus');
+
+        function setUserId() {
+            userId = userIdInput.value.trim();
+            if (!userId) {
+                alert('Please enter a User ID');
+                return;
+            }
+
+            // Store userId in localStorage for convenience
+            localStorage.setItem('plants_user_id', userId);
+
+            // Set up Firebase reference
+            dbRef = database.ref('users/' + userId);
+
+            // Load data from Firebase
+            loadDataFromFirebase();
+
+            // Set up real-time listener
+            setupFirebaseListener();
+
+            syncStatus.textContent = '🔄 Syncing...';
+            syncStatus.className = 'sync-status';
+        }
+
+        function setupFirebaseListener() {
+            if (!dbRef) return;
+
+            dbRef.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                if (data.currentPlants) currentPlants = data.currentPlants;
+                if (data.previousWeeks) previousWeeks = data.previousWeeks;
+                if (data.weekStart) weekStart = data.weekStart;
+                if (data.recipes) recipes = data.recipes;
+                if (data.customPlants) customPlants = data.customPlants;
+
+                updateDisplay();
+                updateRecipesDisplay();
+                syncStatus.textContent = '☁️ Synced';
+                syncStatus.className = 'sync-status connected';
+            });
+        }
+
+        function loadDataFromFirebase() {
+            if (!dbRef) return;
+
+            dbRef.once('value').then((snapshot) => {
+                const data = snapshot.val() || {};
+                currentPlants = data.currentPlants || [];
+                previousWeeks = data.previousWeeks || [];
+                weekStart = data.weekStart || '';
+                recipes = data.recipes || [];
+                customPlants = data.customPlants || [];
+
+                checkForMigration();
+                checkWeekReset();
+                updateDisplay();
+                updateRecipesDisplay();
+            });
+        }
+
+        function saveDataToFirebase() {
+            if (!dbRef || !userId) return;
+
+            dbRef.set({
+                currentPlants: currentPlants,
+                previousWeeks: previousWeeks,
+                weekStart: weekStart,
+                recipes: recipes,
+                customPlants: customPlants,
+                lastUpdated: firebase.database.ServerValue.TIMESTAMP
+            });
+        }
+
+        function init() {
+            // Check if userId is stored in localStorage
+            const storedUserId = localStorage.getItem('plants_user_id');
+            if (storedUserId) {
+                userId = storedUserId;
+                userIdInput.value = userId;
+                dbRef = database.ref('users/' + userId);
+                loadDataFromFirebase();
+                setupFirebaseListener();
+                syncStatus.textContent = '🔄 Syncing...';
+                syncStatus.className = 'sync-status';
+            } else {
+                syncStatus.textContent = '⚠️ Enter user ID to sync';
+                syncStatus.className = 'sync-status disconnected';
+            }
+
+            setInterval(checkWeekReset, 60000);
+            document.addEventListener('click', e => {
+                if (e.target !== plantInput) autocompleteList.innerHTML = '';
+                if (e.target !== recipePlantInput) recipeAutocompleteList.innerHTML = '';
+            });
+        }
+
+        function checkForMigration() {
+            if (currentPlants.length === 0 && previousWeeks.length > 0) {
+                const mostRecentWeek = previousWeeks[0];
+                const now = new Date();
+                const currentWeekStart = getWeekStart();
+                const recentStart = new Date(mostRecentWeek.start_date);
+                const daysDiff = Math.abs((now - recentStart) / (1000 * 60 * 60 * 24));
+                if (daysDiff < 7) {
+                    currentPlants = mostRecentWeek.plants;
+                    previousWeeks.shift();
+                    weekStart = currentWeekStart.toISOString();
+                    saveDataToFirebase();
+                    dataMigrated = true;
+                    migrationNotice.classList.add('show');
+                }
+            }
+        }
+
+        function getWeekStart() {
+            const now = new Date();
+            const daysSinceSaturday = (now.getDay() - 6 + 7) % 7;
+            const startDate = new Date(now.getTime() - (daysSinceSaturday * 24 * 60 * 60 * 1000));
+            startDate.setHours(0, 1, 0, 0);
+            return startDate;
+        }
+
+        function checkWeekReset() {
+            if (!userId) return;
+
+            const now = new Date();
+            const currentWeekStart = getWeekStart();
+            if (weekStart !== currentWeekStart.toISOString()) {
+                if (currentPlants.length > 0) {
+                    previousWeeks.unshift({start_date: weekStart || currentWeekStart.toISOString(), plants: currentPlants, count: currentPlants.length});
+                    if (previousWeeks.length > 8) previousWeeks = previousWeeks.slice(0, 8);
+                }
+                currentPlants = [];
+                weekStart = currentWeekStart.toISOString();
+                saveDataToFirebase();
+                updateDisplay();
+            }
+        }
+
+        function addPlant() {
+            if (!userId) {
+                alert('Please set a User ID first');
+                return;
+            }
+
+            const plant = plantInput.value.trim();
+            if (!plant) return;
+            const plantLower = plant.toLowerCase();
+            for (let existing of currentPlants) if (existing.toLowerCase() === plantLower) { alert(`'${plant}' already in list!`); plantInput.value = ''; return; }
+            currentPlants.push(plant);
+            let isCustom = true;
+            for (const category in ALL_PLANTS) {
+                if (ALL_PLANTS[category].some(p => p.toLowerCase() === plantLower)) {
+                    isCustom = false;
+                    break;
+                }
+            }
+            if (isCustom && !customPlants.some(p => p.toLowerCase() === plantLower)) {
+                customPlants.push(plant);
+            }
+            saveDataToFirebase();
+            updateDisplay();
+            plantInput.value = '';
+            autocompleteList.innerHTML = '';
+            if (currentPlants.length === 30) celebration.classList.add('show');
+        }
+
+        function removePlant(index) {
+            if (!userId) return;
+            currentPlants.splice(index, 1);
+            saveDataToFirebase();
+            updateDisplay();
+        }
+
+        function clearAll() {
+            if (!userId) return;
+            if (confirm('Clear all?')) {
+                currentPlants = [];
+                saveDataToFirebase();
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            plantsList.innerHTML = '';
+            currentPlants.forEach((plant, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="plant-number">${index + 1}</span><span>${plant}</span><button class="remove-btn" onclick="removePlant(${index})">Remove</button>`;
+                plantsList.appendChild(li);
+            });
+            countDisplay.textContent = `${currentPlants.length} plants`;
+            celebration.classList.toggle('show', currentPlants.length >= 30);
+            previousWeeksTable.innerHTML = '';
+            previousWeeks.forEach(week => {
+                const row = document.createElement('tr');
+                const date = new Date(week.start_date);
+                row.innerHTML = `<td>${date.toLocaleDateString()}</td><td>${week.count} plants</td>`;
+                previousWeeksTable.appendChild(row);
+            });
+        }
+
+        function showAutocomplete() {
+            const input = plantInput.value.toLowerCase();
+            autocompleteList.innerHTML = '';
+            if (input.length === 0) { showAllCategories(); return; }
+            let hasMatches = false;
+            for (const [category, plants] of Object.entries(ALL_PLANTS)) {
+                const matches = plants.filter(p => p.toLowerCase().includes(input));
+                if (matches.length > 0) {
+                    hasMatches = true;
+                    const header = document.createElement('div'); header.className = 'category-header'; header.textContent = category;
+                    autocompleteList.appendChild(header);
+                    matches.slice(0, 10).forEach(p => {
+                        const item = document.createElement('div'); item.textContent = p;
+                        item.onclick = () => { plantInput.value = p; autocompleteList.innerHTML = ''; addPlant(); };
+                        autocompleteList.appendChild(item);
+                    });
+                }
+            }
+            if (customPlants.length > 0) {
+                const customMatches = customPlants.filter(p => p.toLowerCase().includes(input));
+                if (customMatches.length > 0) {
+                    hasMatches = true;
+                    const header = document.createElement('div'); header.className = 'category-header'; header.textContent = 'Custom Plants';
+                    autocompleteList.appendChild(header);
+                    customMatches.slice(0, 10).forEach(p => {
+                        const item = document.createElement('div'); item.textContent = p;
+                        item.onclick = () => { plantInput.value = p; autocompleteList.innerHTML = ''; addPlant(); };
+                        autocompleteList.appendChild(item);
+                    });
+                }
+            }
+            if (!hasMatches && input.length > 0) {
+                const custom = document.createElement('div'); custom.textContent = `Add "${plantInput.value}" as custom`;
+                custom.style.fontStyle = 'italic'; custom.style.color = '#666';
+                custom.onclick = () => addPlant();
+                autocompleteList.appendChild(custom);
+            }
+        }
+
+        function showAllCategories() {
+            for (const [category, plants] of Object.entries(ALL_PLANTS)) {
+                const header = document.createElement('div'); header.className = 'category-header'; header.textContent = category;
+                autocompleteList.appendChild(header);
+                plants.slice(0, 5).forEach(p => {
+                    const item = document.createElement('div'); item.textContent = p;
+                    item.onclick = () => { plantInput.value = p; autocompleteList.innerHTML = ''; addPlant(); };
+                    autocompleteList.appendChild(item);
+                });
+                if (plants.length > 5) {
+                    const more = document.createElement('div'); more.textContent = `... and ${plants.length - 5} more`; more.style.fontSize = '12px'; more.style.color = '#666'; more.style.padding = '4px 12px';
+                    autocompleteList.appendChild(more);
+                }
+            }
+            if (customPlants.length > 0) {
+                const header = document.createElement('div'); header.className = 'category-header'; header.textContent = 'Custom Plants';
+                autocompleteList.appendChild(header);
+                customPlants.slice(0, 5).forEach(p => {
+                    const item = document.createElement('div'); item.textContent = p;
+                    item.onclick = () => { plantInput.value = p; autocompleteList.innerHTML = ''; addPlant(); };
+                    autocompleteList.appendChild(item);
+                });
+                if (customPlants.length > 5) {
+                    const more = document.createElement('div'); more.textContent = `... and ${customPlants.length - 5} more`; more.style.fontSize = '12px'; more.style.color = '#666'; more.style.padding = '4px 12px';
+                    autocompleteList.appendChild(more);
+                }
+            }
+        }
+
+        function showInfoModal() { infoModal.classList.add('show'); }
+        function closeInfoModal() { infoModal.classList.remove('show'); }
+        infoModal.addEventListener('click', e => { if (e.target === infoModal) closeInfoModal(); });
+
+        function showRecipeInfoModal() { recipeInfoModal.classList.add('show'); }
+        function closeRecipeInfoModal() { recipeInfoModal.classList.remove('show'); }
+        recipeInfoModal.addEventListener('click', e => { if (e.target === recipeInfoModal) closeRecipeInfoModal(); });
+
+        function showCustomPlantsInfoModal() { customPlantsInfoModal.classList.add('show'); }
+        function closeCustomPlantsInfoModal() { customPlantsInfoModal.classList.remove('show'); }
+        customPlantsInfoModal.addEventListener('click', e => { if (e.target === customPlantsInfoModal) closeCustomPlantsInfoModal(); });
+
+        // Recipe functions
+        function toggleRecipeForm() {
+            if (!userId) {
+                alert('Please set a User ID first');
+                return;
+            }
+            recipeFormContainer.classList.toggle('show');
+            if (recipeFormContainer.classList.contains('show')) {
+                recipeNameInput.value = '';
+                currentRecipePlants = [];
+                updateRecipePlantsDisplay();
+                recipeNameInput.focus();
+                editingRecipeIndex = null;
+            }
+        }
+
+        function editRecipe(index) {
+            if (!userId) return;
+            editingRecipeIndex = index;
+            const recipe = recipes[index];
+            recipeNameInput.value = recipe.name;
+            currentRecipePlants = [...recipe.plants];
+            updateRecipePlantsDisplay();
+            recipeFormContainer.classList.add('show');
+            recipeNameInput.focus();
+        }
+
+        function showRecipeAutocomplete() {
+            const input = recipePlantInput.value.toLowerCase();
+            recipeAutocompleteList.innerHTML = '';
+            if (input.length === 0) { showAllCategoriesForRecipe(); return; }
+            let hasMatches = false;
+            for (const [category, plants] of Object.entries(ALL_PLANTS)) {
+                const matches = plants.filter(p => p.toLowerCase().includes(input));
+                if (matches.length > 0) {
+                    hasMatches = true;
+                    const header = document.createElement('div'); header.className = 'category-header'; header.textContent = category;
+                    recipeAutocompleteList.appendChild(header);
+                    matches.slice(0, 10).forEach(p => {
+                        const item = document.createElement('div'); item.textContent = p;
+                        item.onclick = () => { recipePlantInput.value = p; recipeAutocompleteList.innerHTML = ''; addPlantToRecipe(); };
+                        recipeAutocompleteList.appendChild(item);
+                    });
+                }
+            }
+            if (customPlants.length > 0) {
+                const customMatches = customPlants.filter(p => p.toLowerCase().includes(input));
+                if (customMatches.length > 0) {
+                    hasMatches = true;
+                    const header = document.createElement('div'); header.className = 'category-header'; header.textContent = 'Custom Plants';
+                    recipeAutocompleteList.appendChild(header);
+                    customMatches.slice(0, 10).forEach(p => {
+                        const item = document.createElement('div'); item.textContent = p;
+                        item.onclick = () => { recipePlantInput.value = p; recipeAutocompleteList.innerHTML = ''; addPlantToRecipe(); };
+                        recipeAutocompleteList.appendChild(item);
+                    });
+                }
+            }
+            if (!hasMatches && input.length > 0) {
+                const custom = document.createElement('div'); custom.textContent = `Add "${recipePlantInput.value}" as custom`;
+                custom.style.fontStyle = 'italic'; custom.style.color = '#666';
+                custom.onclick = () => addPlantToRecipe();
+                recipeAutocompleteList.appendChild(custom);
+            }
+        }
+
+        function showAllCategoriesForRecipe() {
+            for (const [category, plants] of Object.entries(ALL_PLANTS)) {
+                const header = document.createElement('div'); header.className = 'category-header'; header.textContent = category;
+                recipeAutocompleteList.appendChild(header);
+                plants.slice(0, 5).forEach(p => {
+                    const item = document.createElement('div'); item.textContent = p;
+                    item.onclick = () => { recipePlantInput.value = p; recipeAutocompleteList.innerHTML = ''; addPlantToRecipe(); };
+                    recipeAutocompleteList.appendChild(item);
+                });
+                if (plants.length > 5) {
+                    const more = document.createElement('div'); more.textContent = `... and ${plants.length - 5} more`; more.style.fontSize = '12px'; more.style.color = '#666'; more.style.padding = '4px 12px';
+                    recipeAutocompleteList.appendChild(more);
+                }
+            }
+            if (customPlants.length > 0) {
+                const header = document.createElement('div'); header.className = 'category-header'; header.textContent = 'Custom Plants';
+                recipeAutocompleteList.appendChild(header);
+                customPlants.slice(0, 5).forEach(p => {
+                    const item = document.createElement('div'); item.textContent = p;
+                    item.onclick = () => { recipePlantInput.value = p; recipeAutocompleteList.innerHTML = ''; addPlantToRecipe(); };
+                    recipeAutocompleteList.appendChild(item);
+                });
+                if (customPlants.length > 5) {
+                    const more = document.createElement('div'); more.textContent = `... and ${customPlants.length - 5} more`; more.style.fontSize = '12px'; more.style.color = '#666'; more.style.padding = '4px 12px';
+                    recipeAutocompleteList.appendChild(more);
+                }
+            }
+        }
+
+        function addPlantToRecipe() {
+            if (!userId) return;
+            const plant = recipePlantInput.value.trim();
+            if (!plant) return;
+            const plantLower = plant.toLowerCase();
+            for (let existing of currentRecipePlants) if (existing.toLowerCase() === plantLower) {
+                alert(`'${plant}' already in recipe!`);
+                recipePlantInput.value = '';
+                return;
+            }
+            currentRecipePlants.push(plant);
+            recipePlantInput.value = '';
+            recipeAutocompleteList.innerHTML = '';
+            updateRecipePlantsDisplay();
+        }
+
+        function removePlantFromRecipe(index) {
+            currentRecipePlants.splice(index, 1);
+            updateRecipePlantsDisplay();
+        }
+
+        function updateRecipePlantsDisplay() {
+            recipePlantsList.innerHTML = '';
+            currentRecipePlants.forEach((plant, index) => {
+                const tag = document.createElement('span');
+                tag.className = 'recipe-plant-tag';
+                tag.innerHTML = `${plant}<button class="remove-recipe-plant" onclick="removePlantFromRecipe(${index})">×</button>`;
+                recipePlantsList.appendChild(tag);
+            });
+        }
+
+        function createRecipe() {
+            if (!userId) return;
+            const name = recipeNameInput.value.trim();
+            if (!name) {
+                alert('Please enter a recipe name');
+                return;
+            }
+            if (currentRecipePlants.length === 0) {
+                alert('Please add at least one plant to the recipe');
+                return;
+            }
+            if (editingRecipeIndex !== null) {
+                recipes[editingRecipeIndex].name = name;
+                recipes[editingRecipeIndex].plants = [...currentRecipePlants];
+                editingRecipeIndex = null;
+            } else {
+                for (let recipe of recipes) {
+                    if (recipe.name.toLowerCase() === name.toLowerCase()) {
+                        alert(`Recipe '${name}' already exists!`);
+                        return;
+                    }
+                }
+                const newRecipe = {
+                    name: name,
+                    plants: [...currentRecipePlants]
+                };
+                recipes.push(newRecipe);
+            }
+            saveDataToFirebase();
+            updateRecipesDisplay();
+            recipeNameInput.value = '';
+            currentRecipePlants = [];
+            updateRecipePlantsDisplay();
+            recipeFormContainer.classList.remove('show');
+        }
+
+        function cancelRecipe() {
+            recipeNameInput.value = '';
+            currentRecipePlants = [];
+            updateRecipePlantsDisplay();
+            recipeFormContainer.classList.remove('show');
+        }
+
+        function addRecipeToWeek(recipeIndex) {
+            if (!userId) return;
+            const recipe = recipes[recipeIndex];
+            let addedCount = 0;
+            recipe.plants.forEach(plant => {
+                const plantLower = plant.toLowerCase();
+                let exists = false;
+                for (let existing of currentPlants) {
+                    if (existing.toLowerCase() === plantLower) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    currentPlants.push(plant);
+                    addedCount++;
+                }
+            });
+            saveDataToFirebase();
+            updateDisplay();
+            if (addedCount > 0) {
+                alert(`Added ${addedCount} new plants from recipe '${recipe.name}'`);
+            } else {
+                alert(`All plants from recipe '${recipe.name}' are already in your list`);
+            }
+            if (currentPlants.length >= 30) celebration.classList.add('show');
+        }
+
+        function deleteRecipe(recipeIndex) {
+            if (!userId) return;
+            if (confirm(`Delete recipe '${recipes[recipeIndex].name}'?`)) {
+                recipes.splice(recipeIndex, 1);
+                saveDataToFirebase();
+                updateRecipesDisplay();
+            }
+        }
+
+        function updateRecipesDisplay() {
+            recipesList.innerHTML = '';
+            recipes.forEach((recipe, index) => {
+                const li = document.createElement('li');
+                li.className = 'recipe-item';
+                li.innerHTML = `
+                    <div class="recipe-item-header">
+                        <span class="recipe-item-name">${recipe.name}</span>
+                        <span class="recipe-plant-count">${recipe.plants.length} plants</span>
+                    </div>
+                    <div class="recipe-item-plants">${recipe.plants.join(', ')}</div>
+                    <div class="recipe-actions">
+                        <button class="btn" onclick="addRecipeToWeek(${index})">Add to Week</button>
+                        <button class="btn-secondary" onclick="editRecipe(${index})">Edit</button>
+                        <button class="remove-btn" onclick="deleteRecipe(${index})">Delete</button>
+                    </div>
+                `;
+                recipesList.appendChild(li);
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
