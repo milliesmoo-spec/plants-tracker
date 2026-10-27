@@ -16,6 +16,8 @@
         .plant-form input { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; min-width: 200px; }
         .btn { padding: 10px 16px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         .btn-secondary { padding: 10px 16px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-warning { padding: 10px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-danger { padding: 10px 16px; background: #d32f2f; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         .plants-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
         .plants-list li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
         .plant-number { background: #2e7d32; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 10px; }
@@ -50,6 +52,8 @@
         .sync-status { font-size: 12px; color: #666; text-align: right; margin-top: 5px; }
         .sync-status.connected { color: #4caf50; }
         .sync-status.disconnected { color: #d32f2f; }
+        .backup-section { margin-top: 15px; padding: 10px; background: #f0f8f4; border-radius: 4px; }
+        .last-sync { font-size: 11px; color: #666; margin-top: 5px; }
 
         /* Recipes section styles */
         .recipe-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
@@ -72,6 +76,7 @@
         .toggle-recipe-form { width: 100%; padding: 10px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         .recipe-plant-count { font-size: 12px; color: #666; margin-left: 8px; }
         .user-id-input { margin-top: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; }
+        textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; min-height: 100px; }
     </style>
 </head>
 <body>
@@ -82,14 +87,15 @@
                 <strong>✅ Data restored!</strong> Your previous plants have been moved to the current week.
             </div>
             <h2>Add Plant <span class="info-icon" onclick="showInfoModal()">?</span></h2>
-            
+
             <!-- User ID input for Firebase -->
             <div style="margin-bottom: 10px;">
-                <input type="text" id="userIdInput" class="user-id-input" placeholder="Enter your user ID (same on all devices)">
+                <input type="text" id="userIdInput" class="user-id-input" placeholder="Enter your user ID (e.g., Millie)">
                 <button class="btn" onclick="setUserId()" style="margin-top: 5px; width: 100%;">Set User ID</button>
+                <div class="sync-status" id="syncStatus">⚠️ Enter user ID to sync</div>
+                <div class="last-sync" id="lastSync"></div>
             </div>
-            <div class="sync-status" id="syncStatus">⚠️ Enter user ID to sync</div>
-            
+
             <form class="plant-form" onsubmit="addPlant(); return false;">
                 <div class="input-wrapper">
                     <input type="text" id="plantInput" autocomplete="off" placeholder="Type plant name..." onfocus="showAutocomplete()" oninput="showAutocomplete()">
@@ -98,6 +104,15 @@
                 <button type="submit" class="btn">Add</button>
             </form>
             <button class="clear-btn" onclick="clearAll()">Clear All</button>
+
+            <!-- Backup/Restore Section -->
+            <div class="backup-section">
+                <h3>💾 Data Backup</h3>
+                <p style="font-size: 14px; margin-bottom: 10px;">Export your data to keep a local copy, or import from a backup.</p>
+                <button class="btn-secondary" onclick="exportData()" style="margin-bottom: 5px;">Export Data</button>
+                <button class="btn-secondary" onclick="showImportModal()">Import Data</button>
+                <div class="last-sync">Last backup: <span id="lastBackup">Never</span></div>
+            </div>
         </div>
 
         <div class="section">
@@ -138,6 +153,21 @@
         </div>
     </div>
 
+    <!-- Import Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Import Data</h3><span class="close-modal" onclick="closeImportModal()">×</span></div>
+            <div class="modal-body">
+                <p>Paste your exported data below:</p>
+                <textarea id="importDataText" placeholder='{"currentPlants": [...], "recipes": [...], ...}'></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="importData()">Import</button>
+                <button class="btn-secondary" onclick="closeImportModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div id="infoModal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h3>About 30 Plants</h3><span class="close-modal" onclick="closeInfoModal()">×</span></div>
@@ -146,6 +176,7 @@
                 <p>The week resets every <strong>Saturday at 12:01 AM</strong>.</p>
                 <p><strong>Cross-device sync:</strong> Enter the same User ID on all your devices to sync data via Firebase. Your data is stored under your User ID.</p>
                 <p><strong>Privacy:</strong> Only you can access your data with your User ID. No authentication required.</p>
+                <p><strong>Backup:</strong> Use the Export button to save a local copy of your data as a safety measure.</p>
             </div>
             <div class="modal-footer"><button class="btn" onclick="closeInfoModal()">OK</button></div>
         </div>
@@ -159,7 +190,7 @@
                 <p>When you add a recipe to your weekly list, all plants in that recipe are added (duplicates are automatically skipped).</p>
                 <p>Recipes persist until you delete them and sync across devices with the same User ID.</p>
             </div>
-            <div class="modal-footer"><button class="btn" onclick="closeRecipeInfoModal()\">OK</button></div>
+            <div class="modal-footer"><button class="btn" onclick="closeRecipeInfoModal()">OK</button></div>
         </div>
     </div>
     <div id="customPlantsInfoModal" class="modal">
@@ -214,6 +245,8 @@
         let editingRecipeIndex = null;
         let userId = '';
         let dbRef = null;
+        let lastFirebaseData = null;
+        let lastLocalData = null;
 
         // DOM elements
         const plantsList = document.getElementById('plantsList');
@@ -233,13 +266,26 @@
         const customPlantsInfoModal = document.getElementById('customPlantsInfoModal');
         const userIdInput = document.getElementById('userIdInput');
         const syncStatus = document.getElementById('syncStatus');
+        const lastSync = document.getElementById('lastSync');
+        const lastBackup = document.getElementById('lastBackup');
+        const importModal = document.getElementById('importModal');
+        const importDataText = document.getElementById('importDataText');
+
+        // Helper to calculate data hash for comparison
+        function getDataHash(data) {
+            return JSON.stringify(data);
+        }
 
         function setUserId() {
-            userId = userIdInput.value.trim();
-            if (!userId) {
+            const newUserId = userIdInput.value.trim();
+            if (!newUserId) {
                 alert('Please enter a User ID');
                 return;
             }
+
+            // Normalize to lowercase to prevent case-sensitivity issues
+            userId = newUserId.toLowerCase();
+            userIdInput.value = userId;
 
             // Store userId in localStorage for convenience
             localStorage.setItem('plants_user_id', userId);
@@ -262,39 +308,150 @@
 
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val() || {};
-                if (data.currentPlants) currentPlants = data.currentPlants;
-                if (data.previousWeeks) previousWeeks = data.previousWeeks;
-                if (data.weekStart) weekStart = data.weekStart;
-                if (data.recipes) recipes = data.recipes;
-                if (data.customPlants) customPlants = data.customPlants;
+                lastFirebaseData = data;
 
-                updateDisplay();
-                updateRecipesDisplay();
-                syncStatus.textContent = '☁️ Synced';
-                syncStatus.className = 'sync-status connected';
+                // Only update if Firebase has newer or different data
+                const firebaseHash = getDataHash({
+                    currentPlants: data.currentPlants || [],
+                    previousWeeks: data.previousWeeks || [],
+                    recipes: data.recipes || [],
+                    customPlants: data.customPlants || []
+                });
+
+                const localHash = getDataHash({
+                    currentPlants: currentPlants,
+                    previousWeeks: previousWeeks,
+                    recipes: recipes,
+                    customPlants: customPlants
+                });
+
+                // Only update from Firebase if data is different and Firebase has data
+                if (firebaseHash !== localHash) {
+                    // Check if Firebase data is actually newer (has content)
+                    const hasFirebaseData = (
+                        (data.currentPlants && data.currentPlants.length > 0) ||
+                        (data.recipes && data.recipes.length > 0) ||
+                        (data.previousWeeks && data.previousWeeks.length > 0) ||
+                        (data.customPlants && data.customPlants.length > 0)
+                    );
+
+                    const hasLocalData = (
+                        currentPlants.length > 0 ||
+                        recipes.length > 0 ||
+                        previousWeeks.length > 0 ||
+                        customPlants.length > 0
+                    );
+
+                    // If Firebase has data and local is empty, load from Firebase
+                    if (hasFirebaseData && !hasLocalData) {
+                        currentPlants = data.currentPlants || [];
+                        previousWeeks = data.previousWeeks || [];
+                        weekStart = data.weekStart || '';
+                        recipes = data.recipes || [];
+                        customPlants = data.customPlants || [];
+
+                        checkForMigration();
+                        updateDisplay();
+                        updateRecipesDisplay();
+                        syncStatus.textContent = '☁️ Synced with Firebase';
+                        syncStatus.className = 'sync-status connected';
+                    }
+                    // If both have data, ask user which to keep
+                    else if (hasFirebaseData && hasLocalData) {
+                        if (confirm('Firebase has existing data. Load from Firebase and overwrite local data?')) {
+                            currentPlants = data.currentPlants || [];
+                            previousWeeks = data.previousWeeks || [];
+                            weekStart = data.weekStart || '';
+                            recipes = data.recipes || [];
+                            customPlants = data.customPlants || [];
+
+                            checkForMigration();
+                            updateDisplay();
+                            updateRecipesDisplay();
+                            syncStatus.textContent = '☁️ Synced with Firebase';
+                            syncStatus.className = 'sync-status connected';
+                        }
+                    }
+                    // If Firebase is empty but local has data, save local to Firebase
+                    else if (!hasFirebaseData && hasLocalData) {
+                        saveDataToFirebase();
+                    }
+                }
+
+                // Update last sync time
+                if (data.lastUpdated) {
+                    const date = new Date(data.lastUpdated);
+                    lastSync.textContent = `Last synced: ${date.toLocaleString()}`;
+                }
             });
         }
 
         function loadDataFromFirebase() {
             if (!dbRef) return;
 
+            syncStatus.textContent = '🔄 Loading from Firebase...';
+            syncStatus.className = 'sync-status';
+
             dbRef.once('value').then((snapshot) => {
                 const data = snapshot.val() || {};
-                currentPlants = data.currentPlants || [];
-                previousWeeks = data.previousWeeks || [];
-                weekStart = data.weekStart || '';
-                recipes = data.recipes || [];
-                customPlants = data.customPlants || [];
 
-                checkForMigration();
-                checkWeekReset();
-                updateDisplay();
-                updateRecipesDisplay();
+                // Only load if Firebase has data
+                const hasData = (
+                    (data.currentPlants && data.currentPlants.length > 0) ||
+                    (data.recipes && data.recipes.length > 0) ||
+                    (data.previousWeeks && data.previousWeeks.length > 0) ||
+                    (data.customPlants && data.customPlants.length > 0)
+                );
+
+                if (hasData) {
+                    currentPlants = data.currentPlants || [];
+                    previousWeeks = data.previousWeeks || [];
+                    weekStart = data.weekStart || '';
+                    recipes = data.recipes || [];
+                    customPlants = data.customPlants || [];
+
+                    checkForMigration();
+                    checkWeekReset();
+                    updateDisplay();
+                    updateRecipesDisplay();
+
+                    syncStatus.textContent = '☁️ Loaded from Firebase';
+                    syncStatus.className = 'sync-status connected';
+                } else {
+                    syncStatus.textContent = 'ℹ️ No data in Firebase for this User ID';
+                    syncStatus.className = 'sync-status';
+                }
+
+                // Update last sync time
+                if (data.lastUpdated) {
+                    const date = new Date(data.lastUpdated);
+                    lastSync.textContent = `Last synced: ${date.toLocaleString()}`;
+                }
+            }).catch((error) => {
+                syncStatus.textContent = '❌ Error loading from Firebase';
+                syncStatus.className = 'sync-status disconnected';
+                console.error('Firebase error:', error);
             });
         }
 
         function saveDataToFirebase() {
             if (!dbRef || !userId) return;
+
+            // Create a backup before saving
+            createLocalBackup();
+
+            // Only save if we have data
+            const hasData = (
+                currentPlants.length > 0 ||
+                recipes.length > 0 ||
+                previousWeeks.length > 0 ||
+                customPlants.length > 0
+            );
+
+            if (!hasData) {
+                console.log('Not saving empty data to Firebase');
+                return;
+            }
 
             dbRef.set({
                 currentPlants: currentPlants,
@@ -303,7 +460,123 @@
                 recipes: recipes,
                 customPlants: customPlants,
                 lastUpdated: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                syncStatus.textContent = '☁️ Saved to Firebase';
+                syncStatus.className = 'sync-status connected';
+                lastSync.textContent = `Last synced: ${new Date().toLocaleString()}`;
+            }).catch((error) => {
+                syncStatus.textContent = '❌ Error saving to Firebase';
+                syncStatus.className = 'sync-status disconnected';
+                console.error('Firebase save error:', error);
             });
+        }
+
+        function createLocalBackup() {
+            if (!userId) return;
+
+            const backupData = {
+                userId: userId,
+                currentPlants: currentPlants,
+                previousWeeks: previousWeeks,
+                weekStart: weekStart,
+                recipes: recipes,
+                customPlants: customPlants,
+                backupDate: new Date().toISOString()
+            };
+
+            localStorage.setItem('plants_backup_' + userId, JSON.stringify(backupData));
+            lastBackup.textContent = `Last backup: ${new Date().toLocaleString()}`;
+        }
+
+        function exportData() {
+            if (!userId) {
+                alert('Please set a User ID first');
+                return;
+            }
+
+            const exportData = {
+                userId: userId,
+                currentPlants: currentPlants,
+                previousWeeks: previousWeeks,
+                weekStart: weekStart,
+                recipes: recipes,
+                customPlants: customPlants,
+                exportedAt: new Date().toISOString()
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `plants-backup-${userId}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            lastBackup.textContent = `Last backup: ${new Date().toLocaleString()}`;
+            alert('Data exported! Check your downloads folder.');
+        }
+
+        function showImportModal() {
+            if (!userId) {
+                alert('Please set a User ID first');
+                return;
+            }
+            importModal.classList.add('show');
+            importDataText.value = '';
+            importDataText.focus();
+        }
+
+        function closeImportModal() {
+            importModal.classList.remove('show');
+        }
+
+        function importData() {
+            try {
+                const dataStr = importDataText.value.trim();
+                if (!dataStr) {
+                    alert('Please paste your backup data');
+                    return;
+                }
+
+                const importData = JSON.parse(dataStr);
+
+                // Validate the data structure
+                if (!importData.currentPlants && !importData.recipes) {
+                    alert('Invalid backup data format');
+                    return;
+                }
+
+                // Check if user matches
+                if (importData.userId && importData.userId.toLowerCase() !== userId) {
+                    if (!confirm(`This backup is for User ID "${importData.userId}". Load it anyway?`)) {
+                        return;
+                    }
+                }
+
+                // Import the data
+                currentPlants = importData.currentPlants || [];
+                previousWeeks = importData.previousWeeks || [];
+                weekStart = importData.weekStart || '';
+                recipes = importData.recipes || [];
+                customPlants = importData.customPlants || [];
+
+                // Save to Firebase
+                saveDataToFirebase();
+
+                // Update display
+                updateDisplay();
+                updateRecipesDisplay();
+
+                closeImportModal();
+                alert('Data imported successfully!');
+            } catch (e) {
+                alert('Error importing data. Please check the format and try again.');
+                console.error('Import error:', e);
+            }
         }
 
         function init() {
@@ -327,6 +600,12 @@
                 if (e.target !== plantInput) autocompleteList.innerHTML = '';
                 if (e.target !== recipePlantInput) recipeAutocompleteList.innerHTML = '';
             });
+
+            // Check for local backups
+            const backupKeys = Object.keys(localStorage).filter(k => k.startsWith('plants_backup_'));
+            if (backupKeys.length > 0) {
+                console.log('Found local backups:', backupKeys);
+            }
         }
 
         function checkForMigration() {
@@ -409,7 +688,7 @@
 
         function clearAll() {
             if (!userId) return;
-            if (confirm('Clear all?')) {
+            if (confirm('Clear all plants? This cannot be undone.')) {
                 currentPlants = [];
                 saveDataToFirebase();
                 updateDisplay();
